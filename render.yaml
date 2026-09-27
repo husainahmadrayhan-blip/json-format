@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: bdris-react-parser
+    runtime: docker
+    plan: free
+    healthCheckPath: /api/health
+    envVars:
+      - key: DEPLOY_MODE
+        value: "1"
+      - key: APP_USER
+        value: operator
+      - key: APP_PASSWORD
+        sync: false

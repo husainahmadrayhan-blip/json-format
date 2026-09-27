@@ -1,0 +1,14 @@
+import {readFileSync} from 'node:fs';
+import {assignOffice} from './src/office-logic.js';
+const offices=JSON.parse(readFileSync(new URL('./src/office-presets.json',import.meta.url),'utf8'));
+if(offices.length!==10||new Set(offices.map(item=>item.id)).size!==10)throw Error('office entries');
+const badda=offices.find(item=>item.id==='v40-middle-badda');
+if(!badda||badda.address.division!=='ঢাকা বিভাগ'||badda.address.upazila!=='ঢাকা উত্তর সিটি কর্পোরেশন'||badda.address.area!=='অঞ্চল - ১০'||badda.address.ward!=='38'||badda.address.postOfficeBn!=='বাড্ডা - ১২১২'||badda.address.postOfficeEn!=='BADDA - 1212'||badda.address.villageBn!=='মধ্য বাড্ডা'||badda.address.villageEn!=='MIDDLE BADDA'||badda.address.houseRoadBn!=='৫৫৬৫'||badda.address.houseRoadEn!=='5565')throw Error('middle Badda office values');
+const source={person:{firstNameBn:'আসল নাম'},father:{nameBn:'বাবা'},birthPlace:{district:'খুলনা'},permanentAddress:{district:'খুলনা'},presentAddress:{district:'খুলনা'}};
+const all=assignOffice(source,offices[2],'all');
+if(all.birthPlace.district!=='ঢাকা'||all.permanentAddress.postOfficeBn!=='ওয়ারী'||all.presentAddress.postOfficeBn!=='দয়াগঞ্জ'||source.birthPlace.district!=='খুলনা')throw Error('all-office mode');
+const two=assignOffice(source,offices[2],'permanentPresent');
+if(two.birthPlace.district!=='খুলনা'||two.person.firstNameBn!=='আসল নাম'||two.father.nameBn!=='বাবা'||two.presentAddress.postOfficeBn!=='দয়াগঞ্জ')throw Error('permanent/present mode');
+const switched=assignOffice(all,offices[2],'permanentPresent',source.birthPlace);
+if(switched.birthPlace.district!=='খুলনা')throw Error('birthplace restoration when switching');
+console.log('Office assignment passed: 10 office presets; 3-address and permanent/present modes');
