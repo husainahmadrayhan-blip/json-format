@@ -1,0 +1,7 @@
+এই ZIP হলো সম্পূর্ণ Render Docker source। Vercel static ZIP নয়। ZIP-টি খুলে ভেতরের সব ফাইল ও src/ ফোল্ডার GitHub repository-র root-এ রাখুন। GitHub-এ শুধু ZIP upload করলে Render build হবে না। আগের main.jsx/root কপি থাকলে সেটি উপেক্ষা করুন; আসল React source হলো src/main.jsx।
+
+Render Dashboard → আপনার Web Service → Manual Deploy → Deploy latest commit। Build শেষ হলে https://আপনার-সাইট.onrender.com/api/health খুলুন। সেখানে version "v59-parent-date-render-20260930" থাকলে নতুন Python parser চলছে। পুরোনো version থাকলে Render পুরোনো commit বা অন্য service deploy করেছে।
+
+সাইটে লগইন করে উপরে একই version দেখুন, তারপর ফরম্যাট পেস্ট করে “নিয়ম দিয়ে JSON” চাপুন। অন্য version দেখালে Browser hard refresh করুন। /api/parse API ও Python rule শুধুমাত্র এই Render service-এ; static React/Vercel ZIP-এ এগুলো নেই।
+
+অস্পষ্ট ফরম্যাটের ক্ষেত্রে সঠিক/ভুল JSON এবং কাঁচা ফরম্যাট (ব্যক্তিগত নম্বর আড়াল করে) পাঠান। ছবির বদলে শুধু পেজের HTML source দিলে parser সমস্যাটি বোঝা যায় না।
