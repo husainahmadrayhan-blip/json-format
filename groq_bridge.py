@@ -4,9 +4,26 @@ import re
 from datetime import datetime
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
+from rules import sequential_names
+from date_utils import normalize_date, date_matches
 
 ENDPOINT = 'https://api.groq.com/openai/v1/chat/completions'
 MODEL = 'openai/gpt-oss-20b'
+
+def api_error_detail(error):
+    """Expose Groq's error reason without echoing credentials or HTML."""
+    try:
+        body = error.read(8192)
+        item = json.loads(body).get('error', {})
+        if not isinstance(item, dict):
+            return ''
+        code = str(item.get('code') or '')
+        message = str(item.get('message') or '')
+        detail = ' — '.join(part for part in (code, message) if part)
+        detail = re.sub(r'gsk_[A-Za-z0-9_-]+', '[API key hidden]', detail)
+        return re.sub(r'[\x00-\x1f\x7f]+', ' ', detail).strip()[:400]
+    except (ValueError, TypeError, OSError):
+        return ''
 GROQ_CORE_FIELDS = frozenset(('person.nameBn','person.nameEn','person.birthDate','person.gender',
                               'father.nameBn','father.nameEn','mother.nameBn','mother.nameEn'))
 GROQ_PARENT_FIELDS = frozenset(('father.brn','father.birthDate','mother.brn','mother.birthDate'))
@@ -24,15 +41,7 @@ DIGITS = str.maketrans('০১২৩৪৫৬৭৮৯','0123456789')
 BRN = re.compile(r'(?<![০-৯0-9])[০-৯0-9]{17}(?![০-৯0-9])')
 
 def day(value):
-    match=DATE.search(value)
-    if match:d,m,y=(int(x.translate(DIGITS)) for x in match.groups())
-    else:
-        iso=re.fullmatch(r'\s*(\d{4})-(\d{2})-(\d{2})\s*',value)
-        if not iso:return ''
-        y,m,d=(int(x) for x in iso.groups())
-    try:datetime(y,m,d)
-    except ValueError:return ''
-    return f'{d:02d}/{m:02d}/{y:04d}'
+    return normalize_date(value)
 
 def eligible_parent_year(raw, applicant_birth):
     """Parent identifiers are requested only with supported 2013+ applicant DOB."""
@@ -73,6 +82,14 @@ def supported(raw,path,value,source):
         other='mother' if role=='father' else 'father'
         if NAME_LABEL[other].search(line):return False
         in_section=last_parent>=0 and last_parent>last_applicant and bool(NAME_LABEL[role].search(lines[last_parent]))
+        if not PARENT.search(raw):
+            # Unlabelled three-person lists are safe only when all three
+            # bilingual name pairs occur in a single unambiguous order.
+            groups,_=sequential_names(raw.splitlines())
+            position=1 if role=='father' else 2
+            language='bn' if field=='nameBn' else 'en'
+            if len(groups)==3 and groups[position][language]==value:
+                return True
         return bool(NAME_LABEL[role].search(line) or (index and NAME_LABEL[role].search(lines[index-1]))
                     or in_section and re.search(r'নাম|name|english|ইংরেজি|বাংলা',line,re.I))
     if role in ('father','mother') and field in ('brn','birthDate'):
@@ -92,7 +109,7 @@ def supported(raw,path,value,source):
             return bool(re.search(r'জন্ম\s*নিবন্ধন|birth\s*reg|\bBRN\b|১৭\s*ডিজিট|17\s*digit',line,re.I)
                         or direct and re.search(r'নাম|name',line,re.I))
         expected=day(value)
-        found={day(match.group()) for match in DATE.finditer(source)}
+        found={date for _,_,date in date_matches(source)}
         if not expected or found!={expected}:return False
         return bool(re.search(r'জন্ম(?:ের)?\s*তারিখ|date\s*of\s*birth|\bdob\b',line,re.I)
                     or direct and re.search(r'নাম|name',line,re.I))
@@ -101,10 +118,12 @@ def supported(raw,path,value,source):
     if parent_section:return False
     if field=='birthDate':
         expected=day(value)
-        found={day(m.group()) for m in DATE.finditer(source)}
+        found={date for _,_,date in date_matches(source)}
         if not expected or found!={expected}:return False
         return bool(re.search(r'জন্ম(?:ের)?\s*তারিখ|date\s*of\s*birth|\bdob\b',line,re.I) or
-                    (index<=3 and index>0 and NAME_LABEL['person'].search(lines[index-1])))
+                    (index<=3 and index>0 and NAME_LABEL['person'].search(lines[index-1])) or
+                    (index<=3 and index>=2 and len(sequential_names(raw.splitlines())[0])==3
+                     and sequential_names(raw.splitlines())[1]==expected))
     if field=='gender':
         gender=value.upper()
         if gender not in ('MALE','FEMALE'):return False
@@ -140,7 +159,8 @@ def extract(raw,missing,key,transport=urlopen):
     try:
         with transport(request,timeout=75) as response:result=json.load(response)
     except HTTPError as error:
-        raise ValueError('Groq API HTTP '+str(error.code)+'; key, model এবং API অ্যাকাউন্ট পরীক্ষা করুন') from None
+        detail = api_error_detail(error)
+        raise ValueError('Groq API HTTP '+str(error.code)+((': '+detail) if detail else '; key, model এবং API অ্যাকাউন্ট পরীক্ষা করুন')) from None
     except (URLError,TimeoutError,OSError) as error:
         raise ValueError('Groq API সংযোগ ব্যর্থ: '+type(error).__name__) from None
     try:

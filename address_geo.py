@@ -15,9 +15,11 @@ FIELD_LABELS = {
     'upazila': r'উপজেলা|থানা|upazila|thana',
     'union': r'ইউনিয়ন|ইউনিয়ন|পৌরসভা|union|pourashava',
     'ward': r'ওয়ার্ড(?:\s*নং)?|ওয়ার্ড(?:\s*নং)?|ward(?:\s*no)?',
-    'postOfficeBn': r'পোস্ট\s*অফিস|ডাক\s*(?:ঘর|গর|গোর)|ডাগ\s*ঘর|পোঃ?',
+    'postOfficeBn': r'পোস্ট\s*অফিস|ডাক\s*(?:ঘর|গর|গোর)|ডাগ\s*ঘর|পোঃ',
     'postOfficeEn': r'post\s*office|post\s*off(?:ice)?|\bp\.?o\.?\b',
-    'villageBn': r'গ্রাম|গেরাম|মহল্লা', 'villageEn': r'village|\bvill\b',
+    'villageBn': r'গ্রাম(?:\s*/\s*রাস্তা)?|গেরাম|মহল্লা', 'villageEn': r'village|\bvill\b',
+    'houseRoadBn': r'বাসা\s*/\s*হোল্ডিং|বাসা\s*নং|হোল্ডিং|বাড়ি\s*নং|রোড',
+    'houseRoadEn': r'house\s*/\s*holding|house\s*no|road',
     'postCode': r'পোস্ট\s*কোড|ডাক\s*কোড|post\s*code|postal\s*code',
 }
 LABEL = re.compile(r'^\s*('+'|'.join('(?:'+p+')' for p in FIELD_LABELS.values())+r')\s*[:：ঃ=\-–—]?\s*(.*?)\s*$', re.I)
@@ -30,6 +32,8 @@ def norm(value):
     text=unicodedata.normalize('NFC',str(value or '')).translate(DIGITS).casefold()
     text=text.replace('কপোরেশন','কর্পোরেশন').replace('করপোরেশন','কর্পোরেশন')
     return re.sub(r'[^\w\u0980-\u09ff]+', '', text)
+
+GEO_NAMES = {norm(name) for name in GEO_NAMES}
 
 def geo_name_line(value):
     return norm(value) in GEO_NAMES
@@ -69,7 +73,10 @@ def read_blocks(raw):
 
 def explicit_values(lines):
     values = {}
-    for line in lines:
+    for original in lines:
+      # WhatsApp addresses often put several explicitly labeled fields on one line.
+      fragments=re.split(r'[,;]\s*(?=(?:'+'|'.join('(?:'+p+')' for p in FIELD_LABELS.values())+r')\s*[:：ঃ=\-–—])',original,flags=re.I)
+      for line in fragments:
         m = LABEL.match(line)
         if not m: continue
         label, value = m.groups()
@@ -77,12 +84,12 @@ def explicit_values(lines):
         if not value: continue
         field = next((k for k,p in FIELD_LABELS.items() if re.fullmatch(p,label,re.I)),None)
         if not field: continue
-        if field in ('postOfficeBn','postOfficeEn','villageBn','villageEn'):
+        if field in ('postOfficeBn','postOfficeEn','villageBn','villageEn','houseRoadBn','houseRoadEn'):
             english = re.search(r'[A-Za-z]',value)
             before,after=(value[:english.start()].strip(),value[english.start():].strip()) if english else (value,'')
             bn = before if re.search(r'[\u0980-\u09ff]',before) else ''
             en = after if english else (before if re.search(r'[A-Za-z]',before) else '')
-            stem = 'postOffice' if field.startswith('postOffice') else 'village'
+            stem = 'postOffice' if field.startswith('postOffice') else 'houseRoad' if field.startswith('houseRoad') else 'village'
             if bn: values.setdefault(stem+'Bn',bn)
             if en: values.setdefault(stem+'En',en)
             if stem=='postOffice':

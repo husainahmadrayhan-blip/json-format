@@ -1,0 +1,9 @@
+Render PostgreSQL-সহ লগইন ব্যবস্থা
+
+সাইট খুললে অ্যানিমেটেড ফুল ও ল্যাপটপে বসা কিশোরের লগইন পৃষ্ঠা আসবে। সাইনআপে ইউজারনেম ও ন্যূনতম ১০ অক্ষরের পাসওয়ার্ড দিন। লগইনের পর বাংলাদেশ সময়ের ঘড়ি উপরে চলবে।
+
+Render-এ আপনার আগে থেকে PostgreSQL থাকলে তার Dashboard → Connect → Internal Database URL নিন। নতুন ZIP খুলে ফাইলগুলো GitHub repository-র root-এ upload করুন। Render → আপনার Web Service → Environment-এ DATABASE_URL-এর মান হিসাবে Internal Database URL দিন। APP_USER=operator এবং APP_PASSWORD-এ নিজের গোপন পাসওয়ার্ড রাখুন। URL/পাসওয়ার্ড GitHub-এ দেবেন না। New → Blueprint দিয়ে প্রথমবার সেটআপ করলে Render DATABASE_URL ও APP_PASSWORD চাইবে; পুরোনো সেবায় deploy হলে Environment-এ সেট করুন। PostgreSQL একই region-এ থাকলে Internal URL ব্যবহার করুন।
+
+ওয়েব সার্ভার এখন Render-এ DATABASE_URL না পেলে চালুই হবে না। সাইনআপের ইউজারনেম ও salt দিয়ে hash করা পাসওয়ার্ড PostgreSQL-এর bdris_users টেবিলে রাখা হয়। সাইট redeploy বা spin down হলেও বিদ্যমান PostgreSQL চালু থাকলে অ্যাকাউন্ট থাকবে। APP_USER/APP_PASSWORD operator অ্যাকাউন্টটিও কাজ করবে। লোকাল PC-তে DATABASE_URL না থাকলে users.sqlite3-এ তথ্য থাকবে।
+
+Render-এর Free PostgreSQL ৩০ দিন পরে মেয়াদোত্তীর্ণ হয়। বিদ্যমান paid PostgreSQL থাকলে এই ৩০ দিনের সীমা নেই। Free DB ব্যবহারে মেয়াদ শেষ হওয়ার আগেই paid-এ upgrade বা backup-এর ব্যবস্থা করুন।

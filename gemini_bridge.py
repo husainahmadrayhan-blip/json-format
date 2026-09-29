@@ -4,14 +4,14 @@ from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 from groq_bridge import payload as groq_payload, supported
 
-MODEL='gemini-2.5-flash'
+MODEL='gemini-3.5-flash-lite'
 ENDPOINT='https://generativelanguage.googleapis.com/v1beta/models/'+MODEL+':generateContent'
 
 def payload(raw,missing):
     contract=groq_payload(raw,missing)
     schema=contract['response_format']['json_schema']['schema']
     return {'contents':[{'role':'user','parts':[{'text':contract['messages'][0]['content']+'\nOriginal text:\n'+raw}]}],
-            'generationConfig':{'responseFormat':{'text':{'mimeType':'application/json','schema':schema}}}}
+            'generationConfig':{'responseMimeType':'application/json','responseJsonSchema':schema}}
 
 def extract(raw,missing,key,transport=urlopen):
     if not isinstance(key,str) or not key.strip() or any(c in key for c in '\r\n'):

@@ -5,3 +5,5 @@ __pycache__
 *.zip
 .git
 .env
+*.sqlite3
+users.db

@@ -1,0 +1,5 @@
+GitHub-এ ফোল্ডার আপলোডে সমস্যা হলে এই ZIP-এর ভেতরে src ফোল্ডার নেই: main.jsx, style.css, office-logic.js, office-presets.json, source-groups.js সব repository-র root-এ রাখুন। Dockerfile build-এর সময় src/ তৈরি করবে। main (2).jsx নাম কাজ করবে না, ঠিক main.jsx নাম চাই।
+
+আগের একই নামের ফাইল থাকলে GitHub web upload সেটি Replace নাও করতে পারে। সেক্ষেত্রে repository-র ফাইল খুলে Edit (পেন্সিল) করে নতুন ZIP-এর সংশ্লিষ্ট ফাইলের কনটেন্ট দিয়ে Commit করুন, অথবা PC-তে git clone করে ফাইলগুলো copy করে git add/commit/push করুন। GitHub-এ শুধু ZIP ফাইল upload করলে Render source পাবে না। সব কোড ও ২২MB BDRIS_MASTER_GEO.json-ও দরকার।
+
+নতুন Dockerfile build log-এ নির্দিষ্ট কোন ফাইল নেই তা দেখাবে। GitHub-এ নতুন commit দেওয়ার পর Render Deploys → Manual Deploy → Deploy latest commit ব্যবহার করুন।

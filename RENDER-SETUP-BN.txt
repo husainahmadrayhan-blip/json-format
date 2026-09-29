@@ -1,0 +1,1 @@
+Render-এ deploy ও PostgreSQL সংযোগের বর্তমান নির্দেশনা: LOGIN-RENDER-BN.txt পড়ুন।

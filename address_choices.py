@@ -1,6 +1,7 @@
 """District-first address candidates and compact, authoritative Geo option trees."""
 import re
 import unicodedata
+from difflib import SequenceMatcher
 from address_geo import DISTRICTS, DIGITS, GEO, LABEL, explicit_values, norm, pick, same
 from locality_romanization import romanize_locality
 from locality_bengalization import bengalize_locality, BN_DIGITS
@@ -18,6 +19,18 @@ def phrase_in(text, name):
     words=[re.escape(x) for x in str(name).strip().split()]
     if not words:return False
     return bool(re.search(r'(?<!'+boundary+r')'+r'\s+'.join(words)+r'(?!'+boundary+r')',text,re.I))
+
+def mostly_matches_district(fragment, district):
+    """Allow a long, distinctive district fragment; never infer from 2–3 letters."""
+    fragment=norm(re.sub(r'\s*[-–]\s*[০-৯0-9]{4}\s*$','',fragment))
+    if not fragment:return False
+    for name in (district.get('nameBn'),district.get('nameEn')):
+        full=norm(name)
+        minimum=4 if re.search(r'[\u0980-\u09ff]',full) else 5
+        if len(fragment)<minimum or len(fragment)<len(full)*0.65:continue
+        if full.startswith(fragment) or (len(fragment)<=len(full) and fragment in full):return True
+        if SequenceMatcher(None,fragment,full).ratio()>=0.82:return True
+    return False
 
 def district_on_line(line):
     line=re.sub(r'^[^A-Za-z\u0980-\u09ff0-9]+','',line).strip()
@@ -48,6 +61,16 @@ def district_on_line(line):
             phrase_in(line,up.get('nameBn')) or phrase_in(line,up.get('nameEn'))
             for up in d.get('upazilas') or []):
             matches.append((div,d))
+    if not matches:
+        # Only an asserted district, or the final component of a full address,
+        # is eligible for partial matching. Names/other locality labels are not.
+        asserted=[]
+        for part in parts:
+            m=re.match(r'^(?:জেলা|districts?|zilla|dis)\s*[:：ঃ=\-]\s*(.+)$',part,re.I)
+            if m:asserted.append(m.group(1))
+        if len(parts)>=3 and not asserted and not local_label:asserted=[parts[-1]]
+        for div,d in DISTRICTS:
+            if any(mostly_matches_district(fragment,d) for fragment in asserted):matches.append((div,d))
     return matches
 
 DEFAULT_LOCALITY = {'postOfficeBn':'চন্দ্র নগর','postOfficeEn':'Chondon Nogor','villageBn':'সাতকাপন','villageEn':'Satkapon'}

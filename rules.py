@@ -2,6 +2,7 @@
 import re
 from datetime import datetime
 from address_geo import geo_name_line
+from date_utils import normalize_date, date_matches
 
 BENGALI = re.compile(r'[\u0980-\u09ff]')
 ENGLISH = re.compile(r'[A-Za-z]')
@@ -74,11 +75,9 @@ def sequential_names(lines):
     for index,source in enumerate(lines):
         line=clean(source.strip('★♦💠●▪•* '))
         if not line:continue
-        if DATE_RE.fullmatch(line):
-            hit=DATE_RE.fullmatch(line)
-            day,month,year=[int(x.translate(DIGITS)) for x in hit.groups()]
-            try:datetime(year,month,day);dates.append((index,f'{day:02d}/{month:02d}/{year:04d}'))
-            except ValueError:pass
+        if re.fullmatch(r'(?:পিতা|বাবা|father|মাতা|মা|mother)',line,re.I):continue
+        if any(line == original for _,original,_ in date_matches(line)):
+            dates.append((index,normalize_date(line)))
             continue
         if geo_name_line(line) or ADDRESS_MARK.search(line) or META_MARK.search(line) or PARENT_MARK.search(line):continue
         if re.search(r'\d|https?://|@|\b(?:otp|nid|brn|office|application)\b',line,re.I):continue
@@ -118,6 +117,8 @@ def extract(raw):
         if re.search(r'মাতার\s*তথ্য|mother(?:[\x27’]s)?\s*information',line,re.I):role='mother';continue
         if re.search(r'নতুন\s*নিবন্ধনের\s*তথ্য|ব্যক্তিগত\s*তথ্য|নিজের\s*তথ্য|personal\s*information',line,re.I):role='person';continue
         label,value=label_value(line)
+        if re.match(r'^(?:পিতা|পিতার|বাবা|বাবার|father)(?=\s|[:ঃ=-]|$)',line,re.I):role='father'
+        elif re.match(r'^(?:মাতা|মাতার|মা|মায়ের|মায়ের|mother)(?=\s|[:ঃ=-]|$)',line,re.I):role='mother'
         active='father' if FATHER.search(label) else 'mother' if MOTHER.search(label) else role
         # Parent name on one line changes context, preventing a following English line from being assigned to person.
         # After an address block, another generic `Name:` often starts an English
@@ -159,7 +160,7 @@ def extract(raw):
         # A standalone date immediately after the applicant's labeled name and
         # its optional English continuation is the applicant's DOB. Never use
         # a date inside a father/mother section or a line with another label.
-        standalone_date = bool(DATE_RE.fullmatch(line))
+        standalone_date = bool(normalize_date(line) and any(line==original for _,original,_ in date_matches(line)))
         previous = next((lines[j].strip() for j in range(i-1,-1,-1) if lines[j].strip()), '')
         applicant_name_nearby = bool(
             names['person']['bn'] or names['person']['en']) and bool(previous) and not (
@@ -174,17 +175,8 @@ def extract(raw):
             if active=='person' and not FATHER.search(line) and not MOTHER.search(line):
                 date_line=line
                 if not DATE_RE.search(date_line) and i+1<len(lines) and not label_value(lines[i+1].strip())[0]:date_line+=' '+lines[i+1].strip()
-                hit=DATE_RE.search(date_line)
-                malformed=MISSING_SEPARATOR_DATE.search(date_line) if not hit else None
-                parts=[int(s.translate(DIGITS)) for s in (hit or malformed).groups()] if (hit or malformed) else None
-                if not parts:
-                    word_date=re.search(r'([০-৯0-9]{1,2})\s*([A-Za-z\u0980-\u09ff]+)\s+([০-৯0-9]{4})',line)
-                    if word_date and word_date.group(2).casefold() in MONTHS:
-                        parts=[int(word_date.group(1).translate(DIGITS)),MONTHS[word_date.group(2).casefold()],int(word_date.group(3).translate(DIGITS))]
-                if parts:
-                    d,m,y=parts
-                    try:datetime(y,m,d);dates.append(f'{d:02d}/{m:02d}/{y:04d}')
-                    except ValueError:pass
+                normalized=normalize_date(date_line)
+                if normalized:dates.append(normalized)
         if re.search(r'লিঙ্গ|লিং|gender|\bsex\b',line,re.I) and not (FATHER.search(line) or MOTHER.search(line)):
             gender_line=line
             if not re.search(r'মহিলা|মেয়ে|মেয়ে|নারী|পুরুষ|ছেলে|\b(?:female|male)\b',line,re.I) and i+1<len(lines) and len(lines[i+1].strip())<20:

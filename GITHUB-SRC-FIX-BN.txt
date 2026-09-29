@@ -1,0 +1,5 @@
+Render error: Docker build-এ /src not found
+
+এই সংস্করণের Dockerfile src/ ফোল্ডার থাকলে তা ব্যবহার করে। GitHub web uploader যদি src-এর ফাইলগুলো root-এ আলাদা করে রেখে দেয়, তাহলে main.jsx, style.css, office-logic.js, office-presets.json, source-groups.js দিয়ে Docker build-এর সময় src/ তৈরি করে।
+
+GitHub repository-র root-এ নতুন Dockerfile প্রতিস্থাপন করুন। root-এ উপরের পাঁচটি ফাইল অথবা src/ ফোল্ডারে ওই পাঁচটি ফাইল থাকতে হবে। সব ফাইল GitHub-এ Commit changes দিলে Render → Deploys-এ build দেখুন। source-groups.js বা office-logic.js অনুপস্থিত হলে সেটিও ZIP থেকে আপলোড করুন। নতুন ZIP-এর React ও PostgreSQL পরিবর্তনগুলোও root-এ একসঙ্গে আপলোড করুন।
